@@ -1,16 +1,18 @@
 from flask import Blueprint, jsonify, request
 
-def create_service_blueprint(db_conn, agent):
+def create_service_blueprint(db_pool, agent):
 
     service_bp = Blueprint('service', __name__)
 
     @service_bp.route('/service-request', methods=['GET'])
     def list_service_request():
-        if db_conn is None:
-            return jsonify({'error': 'Database connection failed'}), 500
+        if db_pool is None:
+            return jsonify({'error': 'Database connection pool not available'}), 500
         
+        conn = None
         try:
-            cursor = db_conn.cursor()
+            conn = db_pool.getconn()
+            cursor = conn.cursor()
             cursor.execute("SELECT id, title, description, status, action_taken, application, username, date_created FROM service_request ORDER BY id DESC")
             records = cursor.fetchall()
             
@@ -28,16 +30,21 @@ def create_service_blueprint(db_conn, agent):
                 })
             
             cursor.close()
+            db_pool.putconn(conn)
             return jsonify(service_requests)
         except Exception as e:
+            if conn:
+                db_pool.putconn(conn)
             return jsonify({'error': str(e)}), 500
 
     @service_bp.route('/service-request', methods=['POST'])
     def create_service_request():
-        if db_conn is None:
-            return jsonify({'error': 'Database connection failed'}), 500
+        if db_pool is None:
+            return jsonify({'error': 'Database connection pool not available'}), 500
         
+        conn = None
         try:
+            conn = db_pool.getconn()
             data = request.get_json()
             
             # Validate required fields
@@ -52,14 +59,14 @@ def create_service_blueprint(db_conn, agent):
             username = data['username']
             status = 'OPEN'
             
-            cursor = db_conn.cursor()
+            cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO service_request (title, description, application, username, status, date_created) VALUES (%s, %s, %s, %s, %s, NOW()) RETURNING id, title, description, application, status",
                 (title, description, application, username, status)
             )
             
             record = cursor.fetchone()
-            db_conn.commit()
+            conn.commit()
             cursor.close()
 
             result = agent.run("""
@@ -72,13 +79,14 @@ def create_service_blueprint(db_conn, agent):
                 Status: {status}
             """.format(id=record[0], title=title, username=username, description=description, application=application, status=status))
             # Read the updated record after agent processing
-            cursor = db_conn.cursor()
+            cursor = conn.cursor()
             cursor.execute(
                 "SELECT id, title, description, application, username, status, action_taken FROM service_request WHERE id = %s",
                 (record[0],)
             )
             updated_record = cursor.fetchone()
             cursor.close()
+            db_pool.putconn(conn)
             
             return jsonify({
                 'data': {
@@ -93,15 +101,19 @@ def create_service_blueprint(db_conn, agent):
                 'message': result.content
             }), 201
         except Exception as e:
-            db_conn.rollback()
+            if conn:
+                conn.rollback()
+                db_pool.putconn(conn)
             return jsonify({'error': str(e)}), 500
 
     @service_bp.route('/service-request/<int:sr_id>', methods=['PUT'])
     def update_service_request(sr_id):
-        if db_conn is None:
-            return jsonify({'error': 'Database connection failed'}), 500
+        if db_pool is None:
+            return jsonify({'error': 'Database connection pool not available'}), 500
         
+        conn = None
         try:
+            conn = db_pool.getconn()
             data = request.get_json()
             
             # Build update fields dynamically - only allow specific fields
@@ -119,19 +131,21 @@ def create_service_blueprint(db_conn, agent):
             
             update_values.append(sr_id)
             
-            cursor = db_conn.cursor()
+            cursor = conn.cursor()
             query = f"UPDATE service_request SET {', '.join(update_fields)} WHERE id = %s RETURNING id, title, description, application, username, status, action_taken"
             cursor.execute(query, update_values)
             
             record = cursor.fetchone()
             
             if record is None:
-                db_conn.rollback()
+                conn.rollback()
                 cursor.close()
+                db_pool.putconn(conn)
                 return jsonify({'error': f'Service request with id {sr_id} not found'}), 404
             
-            db_conn.commit()
+            conn.commit()
             cursor.close()
+            db_pool.putconn(conn)
             
             return jsonify({
                 'data': {
@@ -146,7 +160,9 @@ def create_service_blueprint(db_conn, agent):
                 'message': 'Service request updated successfully'
             }), 200
         except Exception as e:
-            db_conn.rollback()
+            if conn:
+                conn.rollback()
+                db_pool.putconn(conn)
             return jsonify({'error': str(e)}), 500
     
     return service_bp

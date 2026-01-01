@@ -1,16 +1,18 @@
 from flask import Blueprint, jsonify, request
 
-def create_incident_blueprint(db_conn, agent):
+def create_incident_blueprint(db_pool, agent):
 
     incident_bp = Blueprint('incident', __name__)
 
     @incident_bp.route('/incident-ticket', methods=['GET'])
     def list_incident_ticket():
-        if db_conn is None:
-            return jsonify({'error': 'Database connection failed'}), 500
+        if db_pool is None:
+            return jsonify({'error': 'Database connection pool not available'}), 500
         
+        conn = None
         try:
-            cursor = db_conn.cursor()
+            conn = db_pool.getconn()
+            cursor = conn.cursor()
             cursor.execute("SELECT id, title, description, status, resolution, application, username, date_created FROM incident_ticket ORDER BY id DESC")
             records = cursor.fetchall()
             
@@ -28,16 +30,21 @@ def create_incident_blueprint(db_conn, agent):
                 })
             
             cursor.close()
+            db_pool.putconn(conn)
             return jsonify(incident_tickets)
         except Exception as e:
+            if conn:
+                db_pool.putconn(conn)
             return jsonify({'error': str(e)}), 500
 
     @incident_bp.route('/incident-ticket', methods=['POST'])
     def create_incident_ticket():
-        if db_conn is None:
-            return jsonify({'error': 'Database connection failed'}), 500
+        if db_pool is None:
+            return jsonify({'error': 'Database connection pool not available'}), 500
         
+        conn = None
         try:
+            conn = db_pool.getconn()
             data = request.get_json()
             
             # Validate required fields
@@ -52,14 +59,14 @@ def create_incident_blueprint(db_conn, agent):
             username = data['username']
             status = 'OPEN'
             
-            cursor = db_conn.cursor()
+            cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO incident_ticket (title, description, application, username, status, date_created) VALUES (%s, %s, %s, %s, %s, NOW()) RETURNING id, title, description, application, status",
                 (title, description, application, username, status)
             )
             
             record = cursor.fetchone()
-            db_conn.commit()
+            conn.commit()
             cursor.close()
 
             result = agent.run("""
@@ -73,13 +80,14 @@ def create_incident_blueprint(db_conn, agent):
             """.format(id=record[0], title=title, username=username, description=description, application=application, status=status))
             
             # Read the updated record after agent processing
-            cursor = db_conn.cursor()
+            cursor = conn.cursor()
             cursor.execute(
                 "SELECT id, title, description, application, username, status, resolution FROM incident_ticket WHERE id = %s",
                 (record[0],)
             )
             updated_record = cursor.fetchone()
             cursor.close()
+            db_pool.putconn(conn)
             
             return jsonify({
                 'data': {
@@ -94,7 +102,9 @@ def create_incident_blueprint(db_conn, agent):
                 'message': result.content
             }), 201
         except Exception as e:
-            db_conn.rollback()
+            if conn:
+                conn.rollback()
+                db_pool.putconn(conn)
             return jsonify({'error': str(e)}), 500
 
     return incident_bp
