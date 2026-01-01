@@ -1,0 +1,152 @@
+from flask import Blueprint, jsonify, request
+
+def create_service_blueprint(db_conn, agent):
+
+    service_bp = Blueprint('service', __name__)
+
+    @service_bp.route('/service-request', methods=['GET'])
+    def list_service_request():
+        if db_conn is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        try:
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id, title, description, status, action_taken, application, username, date_created FROM service_request ORDER BY id DESC")
+            records = cursor.fetchall()
+            
+            service_requests = []
+            for row in records:
+                service_requests.append({
+                    'id': row[0],
+                    'title': row[1],
+                    'description': row[2],
+                    'status': row[3],
+                    'action_taken': row[4],
+                    'application': row[5],
+                    'username': row[6],
+                    'date_created': row[7].isoformat() if row[7] else None
+                })
+            
+            cursor.close()
+            return jsonify(service_requests)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @service_bp.route('/service-request', methods=['POST'])
+    def create_service_request():
+        if db_conn is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        try:
+            data = request.get_json()
+            
+            # Validate required fields
+            required_fields = ['title', 'description', 'application', 'username']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    return jsonify({'error': f'Missing required field: {field}'}), 400
+            
+            title = data['title']
+            description = data['description']
+            application = data['application']
+            username = data['username']
+            status = 'OPEN'
+            
+            cursor = db_conn.cursor()
+            cursor.execute(
+                "INSERT INTO service_request (title, description, application, username, status, date_created) VALUES (%s, %s, %s, %s, %s, NOW()) RETURNING id, title, description, application, status",
+                (title, description, application, username, status)
+            )
+            
+            record = cursor.fetchone()
+            db_conn.commit()
+            cursor.close()
+
+            result = agent.run("""
+                A new ITSM service request has been created with the following details:
+                ID: {id}
+                Title: {title}
+                Username: {username}
+                Description: {description}
+                Application: {application}
+                Status: {status}
+            """.format(id=record[0], title=title, username=username, description=description, application=application, status=status))
+            # Read the updated record after agent processing
+            cursor = db_conn.cursor()
+            cursor.execute(
+                "SELECT id, title, description, application, username, status, action_taken FROM service_request WHERE id = %s",
+                (record[0],)
+            )
+            updated_record = cursor.fetchone()
+            cursor.close()
+            
+            return jsonify({
+                'data': {
+                    'id': updated_record[0],
+                    'title': updated_record[1],
+                    'description': updated_record[2],
+                    'application': updated_record[3],
+                    'username': updated_record[4],
+                    'status': updated_record[5],
+                    'action_taken': updated_record[6]
+                },
+                'message': result.content
+            }), 201
+        except Exception as e:
+            db_conn.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    @service_bp.route('/service-request/<int:sr_id>', methods=['PUT'])
+    def update_service_request(sr_id):
+        if db_conn is None:
+            return jsonify({'error': 'Database connection failed'}), 500
+        
+        try:
+            data = request.get_json()
+            
+            # Build update fields dynamically - only allow specific fields
+            allowed_fields = ['status', 'action_taken']
+            update_fields = []
+            update_values = []
+            
+            for field in allowed_fields:
+                if field in data:
+                    update_fields.append(f"{field} = %s")
+                    update_values.append(data[field])
+            
+            if not update_fields:
+                return jsonify({'error': 'No valid fields to update. Allowed fields: status, action_taken'}), 400
+            
+            update_values.append(sr_id)
+            
+            cursor = db_conn.cursor()
+            query = f"UPDATE service_request SET {', '.join(update_fields)} WHERE id = %s RETURNING id, title, description, application, username, status, action_taken"
+            cursor.execute(query, update_values)
+            
+            record = cursor.fetchone()
+            
+            if record is None:
+                db_conn.rollback()
+                cursor.close()
+                return jsonify({'error': f'Service request with id {sr_id} not found'}), 404
+            
+            db_conn.commit()
+            cursor.close()
+            
+            return jsonify({
+                'data': {
+                    'id': record[0],
+                    'title': record[1],
+                    'description': record[2],
+                    'application': record[3],
+                    'username': record[4],
+                    'status': record[5],
+                    'action_taken': record[6]
+                },
+                'message': 'Service request updated successfully'
+            }), 200
+        except Exception as e:
+            db_conn.rollback()
+            return jsonify({'error': str(e)}), 500
+    
+    return service_bp
