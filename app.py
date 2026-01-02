@@ -27,7 +27,7 @@ except Exception as e:
     db_pool = None
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["https://service-desk-482804.web.app/"]}})
+CORS(app, resources={r"/*": {"origins": ["https://itsm-frontend.web.app/"]}})
 
 service_bp = create_service_blueprint(db_pool, agent)
 incident_bp = create_incident_blueprint(db_pool, agent)
