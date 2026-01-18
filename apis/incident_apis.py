@@ -36,6 +36,53 @@ def create_incident_blueprint(db_pool, agent):
             if conn:
                 db_pool.putconn(conn)
             return jsonify({'error': str(e)}), 500
+        
+    @incident_bp.route('/incident-ticket-make-decision', methods=['POST'])
+    def make_decision():
+
+        try:
+            conn = db_pool.getconn()
+            data = request.get_json()
+            
+            id = data.get('id')
+            decision = data.get('decision')
+            session_id = data.get('session_id')
+            
+            if not decision or not session_id:
+                return jsonify({'error': 'Missing decision or session_id for interrupt response'}), 400
+            
+            agent_message = agent.make_decision(
+                session_id,
+                decision
+            )
+
+            # Read the updated record after agent processing
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, title, description, application, username, status, resolution FROM incident_ticket WHERE id = %s",
+                (id,)
+            )
+            updated_record = cursor.fetchone()
+            cursor.close()
+            db_pool.putconn(conn)
+            
+            return jsonify({
+                'data': {
+                    'id': updated_record[0],
+                    'title': updated_record[1],
+                    'description': updated_record[2],
+                    'application': updated_record[3],
+                    'username': updated_record[4],
+                    'status': updated_record[5],
+                    'resolution': updated_record[6]
+                },
+                'message': agent_message
+            }), 201
+        
+        except Exception as e:
+            if conn:
+                db_pool.putconn(conn)
+            return jsonify({'error': str(e)}), 500
 
     @incident_bp.route('/incident-ticket', methods=['POST'])
     def create_incident_ticket():
@@ -57,6 +104,9 @@ def create_incident_blueprint(db_pool, agent):
             description = data['description']
             application = data['application']
             username = data['username']
+            session_id = data['session_id'] if 'session_id' in data else None
+            enable_ai_assistant = data.get('enable_ai_assistant', False)
+            disable_interrupts = data.get('disable_interrupts', False)
             status = 'OPEN'
             
             cursor = conn.cursor()
@@ -69,15 +119,17 @@ def create_incident_blueprint(db_pool, agent):
             conn.commit()
             cursor.close()
 
-            result = agent.run("""
-                A new ITSM incident ticket has been created with the following details:
-                ID: {id}
-                Title: {title}
-                Username: {username}
-                Description: {description}
-                Application: {application}
-                Status: {status}
-            """.format(id=record[0], title=title, username=username, description=description, application=application, status=status))
+            agent_message = None
+            if enable_ai_assistant:
+                agent_message = agent.run("""
+                    A new ITSM incident ticket has been created with the following details:
+                    ID: {id}
+                    Title: {title}
+                    Username: {username}
+                    Description: {description}
+                    Application: {application}
+                    Status: {status}
+                """.format(id=record[0], title=title, username=username, description=description, application=application, status=status), session_id=session_id, disable_interrupts=disable_interrupts)
             
             # Read the updated record after agent processing
             cursor = conn.cursor()
@@ -99,7 +151,7 @@ def create_incident_blueprint(db_pool, agent):
                     'status': updated_record[5],
                     'resolution': updated_record[6]
                 },
-                'message': result.content
+                'message': agent_message
             }), 201
         except Exception as e:
             if conn:

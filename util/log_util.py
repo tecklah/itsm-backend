@@ -49,6 +49,9 @@ def print_message(message, db_connection=None):
         print("output:")
         print(message.content)
         _log_to_db(db_connection, "Tool", f"{message.name}: {message.content}")
+    else:
+        print("===== Unknown Message Type =====")
+        print(message)
 
 def _log_to_db(db_connection, message_type, msg):
     if db_connection is None:

@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from langgraph.types import Command
 
 def create_service_blueprint(db_pool, agent):
 
@@ -37,6 +38,51 @@ def create_service_blueprint(db_pool, agent):
                 db_pool.putconn(conn)
             return jsonify({'error': str(e)}), 500
 
+    @service_bp.route('/service-request-make-decision', methods=['POST'])
+    def make_decision():
+
+        try:
+            conn = db_pool.getconn()
+            data = request.get_json()
+            
+            id = data.get('id')
+            decision = data.get('decision')
+            session_id = data.get('session_id')
+            
+            if not decision or not session_id:
+                return jsonify({'error': 'Missing decision or session_id for interrupt response'}), 400
+            
+            agent_message = agent.make_decision(
+                session_id,
+                decision
+            )
+
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, title, description, application, username, status, action_taken FROM service_request WHERE id = %s",
+                (id,)
+            )
+            updated_record = cursor.fetchone()
+            cursor.close()
+            db_pool.putconn(conn)
+            
+            return jsonify({
+                'data': {
+                    'id': updated_record[0],
+                    'title': updated_record[1],
+                    'description': updated_record[2],
+                    'application': updated_record[3],
+                    'username': updated_record[4],
+                    'status': updated_record[5],
+                    'action_taken': updated_record[6]
+                },
+                'message': agent_message
+            }), 200
+        except Exception as e:
+            if conn:
+                db_pool.putconn(conn)
+            return jsonify({'error': str(e)}), 500
+
     @service_bp.route('/service-request', methods=['POST'])
     def create_service_request():
         if db_pool is None:
@@ -57,6 +103,8 @@ def create_service_blueprint(db_pool, agent):
             description = data['description']
             application = data['application']
             username = data['username']
+            session_id = data['session_id'] if 'session_id' in data else None
+            enable_ai_assistant = data.get('enable_ai_assistant', False)
             status = 'OPEN'
             
             cursor = conn.cursor()
@@ -69,15 +117,18 @@ def create_service_blueprint(db_pool, agent):
             conn.commit()
             cursor.close()
 
-            result = agent.run("""
-                A new ITSM service request has been created with the following details:
-                ID: {id}
-                Title: {title}
-                Username: {username}
-                Description: {description}
-                Application: {application}
-                Status: {status}
-            """.format(id=record[0], title=title, username=username, description=description, application=application, status=status))
+            agent_message = None
+            if enable_ai_assistant:
+                agent_message = agent.run("""
+                    A new ITSM service request has been created with the following details:
+                    ID: {id}
+                    Title: {title}
+                    Username: {username}
+                    Description: {description}
+                    Application: {application}
+                    Status: {status}
+                """.format(id=record[0], title=title, username=username, description=description, application=application, status=status), session_id=session_id)
+            
             # Read the updated record after agent processing
             cursor = conn.cursor()
             cursor.execute(
@@ -98,7 +149,7 @@ def create_service_blueprint(db_pool, agent):
                     'status': updated_record[5],
                     'action_taken': updated_record[6]
                 },
-                'message': result.content
+                'message': agent_message
             }), 201
         except Exception as e:
             if conn:

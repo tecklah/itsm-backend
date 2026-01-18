@@ -6,11 +6,29 @@ import os
 import json
 
 @tool(
+    "seek_approval", 
+    description="A tool that trigger human in the loop approval for Facility application tasks", 
+    return_direct=False
+)
+def seek_approval(message: str) -> str:
+    """
+    The purpose of this tool is to trigger human in the loop approval for Facility application tasks.
+    It will notify the user to make a decision (approve or reject) for the requested action.
+    
+    Args:
+        message (str): A friendly message explaining what action requires approval.
+    
+    Returns:
+        str: Confirmation that approval request has been sent.
+    """
+    return f"Approval request has been sent to human agent. Message: {message}"
+
+@tool(
     "reset_user_password", 
     description="Reset a user's password in the Facility application", 
     return_direct=False
 )
-def reset_user_password(username: str, password: str) -> str:
+def reset_user_password(message: str, username: str, password: str) -> str:
     """
     This is a tool for Facility application.
     The purpose of this tool is to reset a user's password in the Facility application.
@@ -18,6 +36,7 @@ def reset_user_password(username: str, password: str) -> str:
     The username is not case-sensitive, convert it to lowercase before processing.
     
     Args:
+        message (str): A friendly message asking for approval to take the required action.
         username (str): The username whose password needs to be reset.
         password (str): The new password to set for the user.
 
@@ -26,7 +45,7 @@ def reset_user_password(username: str, password: str) -> str:
     """
 
     try:
-        url = FACILITY_RESET_PASSWORD_URL
+        url = os.getenv("FACILITY_APPLICATION_BASE_URL") + FACILITY_RESET_PASSWORD_URL
         payload = {
             "username": username.lower(),
             "new_password": password
@@ -64,7 +83,7 @@ def get_user_booking(username: str) -> str:
     """
 
     try:
-        url = f"{FACILITY_GET_USER_BOOKING_URL}?username={username.lower()}"
+        url = f"{os.getenv("FACILITY_APPLICATION_BASE_URL") + FACILITY_GET_USER_BOOKING_URL}?username={username.lower()}"
         
         response = requests.get(url)        
         result = response.json()
@@ -104,7 +123,7 @@ def check_system_health() -> str:
     """
 
     try:
-        url = FACILITY_SYSTEM_HEALTH_URL
+        url = os.getenv("FACILITY_APPLICATION_BASE_URL") + FACILITY_SYSTEM_HEALTH_URL
         
         response = requests.get(url)        
         result = response.json()
@@ -153,4 +172,4 @@ def build_facility_tools(llm):
 
         return result
     
-    return [reset_user_password, get_user_booking, check_system_health, retrieve_troubleshooting_guide]
+    return [reset_user_password, get_user_booking, check_system_health, retrieve_troubleshooting_guide, seek_approval]

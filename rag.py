@@ -51,7 +51,7 @@ class RAG:
         top_n: int=3,
         namespace="__default__"
     ):
-        #print("*** RAG Query:", question)
+        print("*** RAG Query:", question)
         
         results = self.index.search(
             namespace=namespace, 
