@@ -110,11 +110,11 @@ FACILITY_APPLICATION_AGENT_PROMPT = """
         3. CRITICAL - HITL (Human-In-The-Loop) Decision Point:
            Based on the investigation result from step 2:
            
-           - If investigation indicates incident ticket CAN BE CLOSED:
+           - After troubleshooting, if the conclusion or investigation indicates incident ticket CAN BE CLOSED:
              * TRIGGER "seek_approval" tool to request user approval via HITL interrupt
              * In the approval prompt, clearly state what was resolved and ask user to confirm closure
            
-           - If investigation indicates incident ticket CANNOT BE CLOSED:
+           - After troubleshooting, if the conclusion or investigation indicates incident ticket CANNOT BE CLOSED:
              * DO NOT TRIGGER "seek_approval" tool
              * The incident ticket will remain OPEN without requiring user approval
         4. If you have retrieved the user's booking information using the "get_user_booking" tool, include the details of the last booking in your response.
