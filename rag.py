@@ -75,8 +75,8 @@ class RAG:
             "based ONLY on the provided context.\n\n"
             "Context:\n{context}\n\n"
             "Question:\n{question}\n\n"
-            "Use the context above to answer the question. "
-            "Answer using the context, even if it is only partially relevant."
+            "Use the context above to answer the question, even if it is only partially relevant."
+            "Keep your answer concise and to the point. DO NOT fabricate any information. "
             "Reply 'No relevant information available.' if the context is absolutely not related to the question."
         ).format(context=concatenated_text, question=question)
 

@@ -54,7 +54,7 @@ SUPERVISOR_AGENT_PROMPT = """
     STRICT EXECUTION ORDER for incident tickets related to Facility Application ONLY:
     Only execute if scope assessment confirms IN SCOPE:
     1. Delegate the ticket to "facility-application-agent". Your message to this sub-agent
-       MUST ONLY contain factual ticket information (ticket id, title, description,
+       MUST ONLY contain factual ticket information (ticket id, title, description, application,
        and any known context). You MUST NOT include any troubleshooting steps or suggested actions.
     2. Call "itsm-database-agent" to update the incident ticket using primary key "id":
         - If the response from step 1 is close the incident ticket:
@@ -104,12 +104,26 @@ FACILITY_APPLICATION_AGENT_PROMPT = """
         2. Generate a new random compliant password based on InfoSecurity policies provided in the context.
         3. Use the "reset_user_password" tool to reset the user's password.
         4. Return a concise response with the status of the password reset operation and the password to the requesting agent.
-    - Troubleshooting system or user issues.
-        1. FIRST, you MUST always use "retrieve_troubleshooting_guide" tool to retrieve the troubleshooting guide for the system or user issues from vector database. The question should be short and specific to the issues. For system alert triggered by monitoring application, you need to mention it explicitly.
-        2. Carefully read the troubleshooting guide. If the guide provides clear steps, STRICTLY follow them and using any available tools for your troubleshooting. If the guide is unclear or insufficient, reply: “issue could not be resolved.”
-        3. If the overall system health is healthy, trigger "seek_approval" tool to ask user for approval to CLOSE the ticket. Else, the status should remain as OPEN, DO NOT ask for approval, just continue to next step.
+    - Troubleshooting incident ticket. With condition: username is NOT "SYSTEM" and title is NOT "System Alert".
+        1. FIRST, you MUST use "retrieve_troubleshooting_guide" tool to retrieve the troubleshooting guide for the user issues. Keep the question should be short and specific to the issues.
+        2. STRICTLY follow troubleshooting guide and using any available tools. If the guide is unclear or insufficient, reply: “Issue could not be resolved. Incident ticket will remain OPEN.”. Else, keep the response concise and state clearly if incident ticket should be CLOSED or remain OPEN.
+        3. CRITICAL - HITL (Human-In-The-Loop) Decision Point:
+           Based on the investigation result from step 2:
+           
+           - If investigation indicates incident ticket CAN BE CLOSED:
+             * TRIGGER "seek_approval" tool to request user approval via HITL interrupt
+             * In the approval prompt, clearly state what was resolved and ask user to confirm closure
+           
+           - If investigation indicates incident ticket CANNOT BE CLOSED:
+             * DO NOT TRIGGER "seek_approval" tool
+             * The incident ticket will remain OPEN without requiring user approval
         4. If you have retrieved the user's booking information using the "get_user_booking" tool, include the details of the last booking in your response.
-        5. ALWAYS return a concise response summarizing the overall system health, troubleshooting actions taken, and whether the ticket should remain OPEN or be CLOSED to the requesting agent.
+        5. Return a concise response of the overall system health, troubleshooting actions taken, and whether the incident ticket should remain OPEN or be CLOSED to the requesting agent.
+    - Troubleshooting incident ticket. With condition: username is "SYSTEM" and title is "System Alert".
+        1. FIRST, you MUST use "retrieve_troubleshooting_guide" tool to retrieve the troubleshooting guide for the system issues. Keep the question should be short and specific to the issues. For system alert, you need to mention it explicitly.
+        2. STRICTLY follow troubleshooting guide and using any available tools. If the guide is unclear or insufficient, reply: “Issue could not be resolved. Incident ticket will remain OPEN.”. Keep the response concise.
+        3. If you have retrieved the user's booking information using the "get_user_booking" tool, include the details of the last booking in your response.
+        4. Return a concise response of the overall system health, troubleshooting actions taken, and whether the incident ticket should remain OPEN or be CLOSED to the requesting agent.
     - For any other type of request, reply:
         "OUT_OF_SCOPE"
 
