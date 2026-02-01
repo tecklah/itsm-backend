@@ -18,16 +18,23 @@ def create_chat_blueprint(db_pool, agent):
                 return jsonify({'error': 'Missing decision or session_id for interrupt response'}), 400
             
             # Resume the agent with the decision
-            result = agent.run(None, decision=decision, session_id=session_id)
+            result = agent.make_decision(session_id=session_id, decision=decision)
             
+            print(f"Agent result1: {result}")
+
             # Check if result is another interrupt
             if isinstance(result, dict) and result.get('type') == 'interrupt':
                 return jsonify(result), 200
             
             # Normal message response
-            return jsonify({
-                'message': result.content if hasattr(result, 'content') else str(result)
-            }), 200
+            if isinstance(result, dict) and result.get('type') == 'message':
+                message = result.get('message', '')
+            elif hasattr(result, 'content'):
+                message = result.content
+            else:
+                message = str(result)
+            
+            return jsonify({'message': message}), 200
         
         # Normal chat request
         # Validate required fields
@@ -46,14 +53,21 @@ def create_chat_blueprint(db_pool, agent):
             Question: {question}
         """.format(question=question, username=username), session_id=session_id)
         
+        print(f"Agent result: {result}")
+        
         # Check if result is an interrupt (dict with 'type' key)
         if isinstance(result, dict) and result.get('type') == 'interrupt':
             return jsonify(result), 200
         
         # Normal message response
-        return jsonify({
-            'message': result.content
-        }), 201
+        if isinstance(result, dict) and result.get('type') == 'message':
+            message = result.get('message', '')
+        elif hasattr(result, 'content'):
+            message = result.content
+        else:
+            message = str(result)
+        
+        return jsonify({'message': message}), 200
     
     return chat_bp
 

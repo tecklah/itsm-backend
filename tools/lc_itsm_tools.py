@@ -15,7 +15,7 @@ def build_itsm_tools(llm, db_connection):
         description="This is a tool to create a service request in the ITSM application.", 
         return_direct=False
     )
-    def create_service_request(title: str, description: str, application: str, username: str) -> str:
+    def create_service_request(message: str, title: str, description: str, application: str, username: str) -> str:
         """
         This is a tool for ITSM application.
         The purpose of this tool is to create a service request in the ITSM application.
