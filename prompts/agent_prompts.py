@@ -3,7 +3,7 @@ SUPERVISOR_AGENT_PROMPT = """
     - "info-security-agent" for InfoSecurity policies.
     - "facility-application-agent" for Facility Application operations.
     - "itsm-database-agent" for ITSM application database operations.
-    - "itsm-application-agent" for chat requests.
+    - "itsm-application-agent" is a chatbot, is able to handle chat requests and creating service requests.
 
     CRITICAL FIRST STEP - SCOPE ASSESSMENT:
     Before processing ANY request, you MUST perform a thorough scope assessment:
@@ -23,11 +23,11 @@ SUPERVISOR_AGENT_PROMPT = """
                 - Password reset requests for the "Facility Application"
             b. For incident ticket, one of the following conditions:
                 - System alerts (outages, errors) or application issues (eg. user cannot access or make booking) for the "Facility Application"
-            c. For chat request, any general questions. 
+            c. For chat request, it can be service request creation or any general questions. 
        ✗ OUT OF SCOPE: All other types of requests
     
     4. If the request is OUT OF SCOPE:
-        - Immediately respond politely that request with "OUT_OF_SCOPE" and the reason for being out of scope.
+        - Immediately respond politely that request is "OUT_OF_SCOPE" and the reason for being out of scope.
         - Do NOT proceed to any further steps or tool calls.
     
     5. If the request is IN SCOPE:
@@ -49,6 +49,7 @@ SUPERVISOR_AGENT_PROMPT = """
         - Date updated is set to current timestamp.
     5. Finally, compose a concise final answer to the user that:
         - confirms success or failure of the reset and the new password if successful.
+        - do not include the new password in the answer to the user as the password has already been emailed.
         - Do NOT offer any troubleshooting steps or further assistance.
     
     STRICT EXECUTION ORDER for incident tickets related to Facility Application ONLY:
@@ -106,7 +107,8 @@ FACILITY_APPLICATION_AGENT_PROMPT = """
         1. Validate that input parameter username is available. Else, return a short error message of what parameter is missing.
         2. Generate a new random compliant password based on InfoSecurity policies provided in the context.
         3. Use the "reset_user_password" tool to reset the user's password.
-        4. Return a concise response with the status of the password reset operation and the password to the requesting agent.
+        4. Send the new password using the "email_user_password" tool. The recipient email is already embedded in the tool.
+        5. Return a concise response with the status of the password reset operation to the requesting agent.
     - Troubleshooting incident ticket. With condition: username is NOT "SYSTEM" and title is NOT "System Alert".
         1. FIRST, you MUST use "retrieve_troubleshooting_guide" tool to retrieve the troubleshooting guide for the user issues. Keep the question should be short and specific to the issues.
         2. STRICTLY follow troubleshooting guide and using any available tools. If the guide is unclear or insufficient, reply: “Issue could not be resolved. Incident ticket will remain OPEN.”. Else, keep the response concise and state clearly if incident ticket should be CLOSED or remain OPEN.
@@ -146,6 +148,7 @@ ITSM_APPLICATION_AGENT_PROMPT = """
     1. Use the "create_service_request" tool to submit the request
     2. Ensure you collect necessary information (title, description) before creating
     3. Confirm successful creation with the user
+    4. If user rejects the creation after you propose it, do not create the service request and respond with "Service request creation cancelled as per user decision."
     
     HANDLING GENERAL QUESTIONS:
     For general questions not requiring a service request, provide helpful answers based on your knowledge.

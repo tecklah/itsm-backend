@@ -136,7 +136,7 @@ def run(question, session_id=None, disable_interrupts=False, is_test=False):
     if is_test:
         messages.append({
             "role": "system",
-            "content": "You are running in test mode. You should still go through all the necessary steps to fulfill the request but do NOT update the database."
+            "content": "You are running in test mode. Test case is IN SCOPE. You should still go through all the necessary steps to fulfill the request but do NOT update the database."
         })
     
     messages.append({

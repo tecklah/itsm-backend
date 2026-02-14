@@ -1,9 +1,58 @@
+from multiprocessing.dummy.connection import Client
 from common.constants import FACILITY_RESET_PASSWORD_URL, FACILITY_SYSTEM_HEALTH_URL, FACILITY_GET_USER_BOOKING_URL
 from langchain.tools import tool
+from fastmcp import Client
 from rag import RAG
 import requests
 import os
 import json
+
+@tool("email_user_password", description="Send password reset email to user via Gmail", return_direct=False)
+def email_user_password(password: str, additional_message: str = "") -> str:
+    """
+    The purpose of this tool is to send password reset email to user via Gmail.
+    
+    Args:
+        password (str): The new password to be sent to the user.
+        additional_message (str): Additional message to include in the email (optional).
+    Returns:
+        str: A string containing the status of the email sending operation.
+    """
+    import asyncio
+    
+    async def _send_email():
+        client = Client(os.getenv('MCP_SERVER_URL'))
+        
+        async with client:
+            print("\nConnecting to MCP server...")
+            
+            # Ping the server
+            await client.ping()
+            print("✓ Server is responding")
+            
+            # List available tools
+            tools = await client.list_tools()
+            print(f"\nAvailable tools:")
+            for tool in tools:
+                print(f"  - {tool.name}: {tool.description}")
+            
+            # Call the send_password_email tool
+            print("\nSending password reset email...")
+            
+            result = await client.call_tool(
+                "send_password_email",
+                {
+                    "password": password,
+                    "additional_message": additional_message
+                }
+            )
+            
+            print(f"\nResult: {result}")
+            print("\n✓ Password reset email sent successfully!")
+
+            return result
+    
+    return asyncio.run(_send_email())
 
 @tool(
     "seek_approval", 
@@ -177,4 +226,4 @@ def build_facility_tools(llm):
 
         return result
     
-    return [reset_user_password, get_user_booking, check_system_health, retrieve_troubleshooting_guide, seek_approval]
+    return [reset_user_password, get_user_booking, check_system_health, retrieve_troubleshooting_guide, seek_approval, email_user_password]
