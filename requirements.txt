@@ -22,3 +22,4 @@ psycopg2-binary==2.9.11
 pytest==9.0.2
 python-dotenv==1.2.1
 gunicorn==23.0.0
+fastmcp>=3.0.0rc1
