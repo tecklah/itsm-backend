@@ -26,9 +26,9 @@ llm = ChatOpenAI(
     max_tokens=1000,
 )
 
-# Check if DB_HOST starts with /cloudsql/ for Unix socket connection
-if os.getenv('DB_HOST', '').startswith('/cloudsql/'):
-    db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@/{os.getenv('LANGCHAIN_DB_NAME')}?host={os.getenv('DB_HOST')}"
+db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('LANGCHAIN_DB_NAME')}"
+if os.getenv('CLOUD_SQL_CONNECTION_NAME'):
+    db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@/{os.getenv('LANGCHAIN_DB_NAME')}?host=/cloudsql/{os.getenv('CLOUD_SQL_CONNECTION_NAME')}"
 else:
     # For TCP connection (local or external IP)
     db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('LANGCHAIN_DB_NAME')}"
