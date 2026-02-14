@@ -23,13 +23,15 @@ def get_langchain_db_connection(dbname, username, password, host="localhost"):
     via the unix socket using a SQLAlchemy query parameter, not as a TCP host.
     """
 
-    if host and host.startswith("/cloudsql/"):
-        # Cloud SQL unix socket: use host as query parameter
-        uri = (
-            f"postgresql+psycopg2://{username}:{password}@/{dbname}?host={host}"
-        )
-    else:
-        # Normal TCP host (local dev, etc.)
-        uri = f"postgresql+psycopg2://{username}:{password}@{host}/{dbname}"
+    # if host and host.startswith("/cloudsql/"):
+    #     # Cloud SQL unix socket: use host as query parameter
+    #     uri = (
+    #         f"postgresql+psycopg2://{username}:{password}@/{dbname}?host={host}"
+    #     )
+    # else:
+    #     # Normal TCP host (local dev, etc.)
+    #     uri = f"postgresql+psycopg2://{username}:{password}@{host}/{dbname}"
+
+    uri = f"postgresql+psycopg2://{username}:{password}@{host}/{dbname}"
 
     return SQLDatabase.from_uri(uri)
