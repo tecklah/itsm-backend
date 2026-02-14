@@ -12,7 +12,9 @@ from util.db_util import get_langchain_db_connection, get_db_connection
 from prompts.agent_prompts import SUPERVISOR_AGENT_PROMPT, ITSM_DATABASE_AGENT_PROMPT, INFO_SECURITY_AGENT_PROMPT, FACILITY_APPLICATION_AGENT_PROMPT, ITSM_APPLICATION_AGENT_PROMPT
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.postgres import PostgresSaver
 from pprint import pprint
+import psycopg
 
 load_dotenv()
 
@@ -23,6 +25,11 @@ llm = ChatOpenAI(
     temperature=0.1,
     max_tokens=1000,
 )
+
+db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('LANGCHAIN_DB_NAME')}"
+checkpointer_conn = psycopg.connect(db_uri, autocommit=True)
+checkpointer = PostgresSaver(checkpointer_conn)
+checkpointer.setup()  # Creates checkpoint tables
 
 db_connection = get_db_connection(os.getenv('DB_NAME'), os.getenv('DB_USERNAME'), os.getenv('DB_PASSWORD'), os.getenv('DB_HOST'), os.getenv('DB_PORT'))
 langchain_db_connection = get_langchain_db_connection(os.getenv('DB_NAME'), os.getenv('DB_USERNAME'), os.getenv('DB_PASSWORD'), os.getenv('DB_HOST'))
@@ -73,7 +80,8 @@ agent = create_deep_agent(
     model=llm,
     system_prompt=SUPERVISOR_AGENT_PROMPT,
     subagents=subagents,
-    checkpointer = MemorySaver()
+    # checkpointer = MemorySaver()
+    checkpointer = checkpointer
 )
 
 def make_decision(session_id, decision):
