@@ -1,4 +1,3 @@
-from multiprocessing.dummy.connection import Client
 from common.constants import FACILITY_RESET_PASSWORD_URL, FACILITY_SYSTEM_HEALTH_URL, FACILITY_GET_USER_BOOKING_URL
 from langchain.tools import tool
 from fastmcp import Client
@@ -18,42 +17,42 @@ def email_user_password(password: str, additional_message: str = "") -> str:
     Returns:
         str: A string containing the status of the email sending operation.
     """
-    # import asyncio
+    import asyncio
     
-    # async def _send_email():
-    #     client = Client(os.getenv('MCP_SERVER_URL'))
+    async def _send_email():
+        client = Client(os.getenv('MCP_SERVER_URL'))
         
-    #     async with client:
-    #         print("\nConnecting to MCP server...")
+        async with client:
+            print("\nConnecting to MCP server...")
             
-    #         # Ping the server
-    #         await client.ping()
-    #         print("✓ Server is responding")
+            # Ping the server
+            await client.ping()
+            print("✓ Server is responding")
             
-    #         # List available tools
-    #         tools = await client.list_tools()
-    #         print(f"\nAvailable tools:")
-    #         for tool in tools:
-    #             print(f"  - {tool.name}: {tool.description}")
+            # List available tools
+            tools = await client.list_tools()
+            print(f"\nAvailable tools:")
+            for tool in tools:
+                print(f"  - {tool.name}: {tool.description}")
             
-    #         # Call the send_password_email tool
-    #         print("\nSending password reset email...")
+            # Call the send_password_email tool
+            print("\nSending password reset email...")
             
-    #         result = await client.call_tool(
-    #             "send_password_email",
-    #             {
-    #                 "password": password,
-    #                 "additional_message": additional_message
-    #             }
-    #         )
+            result = await client.call_tool(
+                "send_password_email",
+                {
+                    "password": password,
+                    "additional_message": additional_message
+                }
+            )
             
-    #         print(f"\nResult: {result}")
-    #         print("\n✓ Password reset email sent successfully!")
+            print(f"\nResult: {result}")
+            print("\n✓ Password reset email sent successfully!")
 
-    #         return result
+            return result
     
-    # return asyncio.run(_send_email())
-    return "Password reset email has been sent to the user."
+    return asyncio.run(_send_email())
+    # return "Password reset email has been sent to the user."
 
 @tool(
     "seek_approval", 
