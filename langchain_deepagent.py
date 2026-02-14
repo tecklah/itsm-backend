@@ -30,7 +30,6 @@ llm = ChatOpenAI(
 if os.getenv('DB_HOST', '').startswith('/cloudsql/'):
     db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@/{os.getenv('LANGCHAIN_DB_NAME')}?host={os.getenv('DB_HOST')}"
 else:
-    # For TCP connection (local or external IP)
     db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('LANGCHAIN_DB_NAME')}"
 
 checkpointer_conn = psycopg.connect(db_uri, autocommit=True)
