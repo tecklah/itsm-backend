@@ -27,15 +27,15 @@ llm = ChatOpenAI(
 )
 
 # Check if DB_HOST starts with /cloudsql/ for Unix socket connection
-# if os.getenv('DB_HOST', '').startswith('/cloudsql/'):
-#     db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@/{os.getenv('LANGCHAIN_DB_NAME')}?host={os.getenv('DB_HOST')}"
-# else:
-#     # For TCP connection (local or external IP)
-#     db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('LANGCHAIN_DB_NAME')}"
+if os.getenv('DB_HOST', '').startswith('/cloudsql/'):
+    db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@/{os.getenv('LANGCHAIN_DB_NAME')}?host={os.getenv('DB_HOST')}"
+else:
+    # For TCP connection (local or external IP)
+    db_uri = f"postgresql://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('LANGCHAIN_DB_NAME')}"
 
-# checkpointer_conn = psycopg.connect(db_uri, autocommit=True)
-# checkpointer = PostgresSaver(checkpointer_conn)
-# checkpointer.setup()  # Creates checkpoint tables
+checkpointer_conn = psycopg.connect(db_uri, autocommit=True)
+checkpointer = PostgresSaver(checkpointer_conn)
+checkpointer.setup()  # Creates checkpoint tables
 
 db_connection = get_db_connection(os.getenv('DB_NAME'), os.getenv('DB_USERNAME'), os.getenv('DB_PASSWORD'), os.getenv('DB_HOST'), os.getenv('DB_PORT'))
 langchain_db_connection = get_langchain_db_connection(os.getenv('DB_NAME'), os.getenv('DB_USERNAME'), os.getenv('DB_PASSWORD'), os.getenv('DB_HOST'))
@@ -86,8 +86,8 @@ agent = create_deep_agent(
     model=llm,
     system_prompt=SUPERVISOR_AGENT_PROMPT,
     subagents=subagents,
-    checkpointer = MemorySaver()
-    # checkpointer = checkpointer
+    # checkpointer = MemorySaver()
+    checkpointer = checkpointer
 )
 
 def make_decision(session_id, decision):
