@@ -52,8 +52,8 @@ def email_user_password(password: str, additional_message: str = "") -> str:
     #         return result
     
     # return asyncio.run(_send_email())
-    print(f"\Password: {password}. Additional message: {additional_message}")
-    print("\n✓ Password reset email sent successfully!")
+    print(f"Password: {password}. Additional message: {additional_message}")
+    print("✓ Password reset email sent successfully!")
     return "Password reset email has been sent to the user."
     
 @tool(
